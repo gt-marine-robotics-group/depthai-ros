@@ -1,0 +1,29 @@
+/center_camera:
+  ros__parameters:
+    tf:
+      vehicle_frame_location: [1, 0, -0.05]
+      vehicle_frame_direction: [0, 0, 0]
+    camera:
+      dfov_rgb: 2.0944
+      dfov_stereo: 2.61799
+      MXID: 184430101147E2F400
+
+/left_camera:
+  ros__parameters:
+    tf:
+      vehicle_frame_location: [0.6, -0.4, -0.05]
+      vehicle_frame_direction: [0, 0, 0.261799]
+    camera:
+      dfov_rgb: 2.0944
+      dfov_stereo: 2.61799
+      MXID: 184430108189E7F400 
+
+/right_camera:
+  ros__parameters:
+    tf:
+      vehicle_frame_location: [0.6, 0.4, -0.05]
+      vehicle_frame_direction: [0, 0, -0.261799]
+    camera:
+      dfov_rgb: 2.0944
+      dfov_stereo: 2.61799
+      MXID: 18443010E18CE7F400
