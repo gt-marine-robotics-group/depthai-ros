@@ -1,3 +1,15 @@
+'''
+Modified launch file combining camera.launch.py and camera_as_part_of_a_robot.launch.py
+camera.launch.py is the base file, added the following:
+1. ComposableNodes -- rectify_rgb and PointCloud
+2. also DeclareLaunchArgument
+
+TODO:
+1. specify mxid and IP, don't leave it to search automatically
+2. load .yaml file to populated LaunchConfiguration
+3. add tf_params (see camera_as_part_of_a_robot.launch.py)
+'''
+
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -5,9 +17,9 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import ComposableNodeContainer, LoadComposableNodes, Node
-from launch_ros.descriptions import ComposableNode
 from launch.conditions import IfCondition
+from launch_ros.actions import ComposableNodeContainer, Node, LoadComposableNodes
+from launch_ros.descriptions import ComposableNode
 
 
 def launch_setup(context, *args, **kwargs):
@@ -15,10 +27,14 @@ def launch_setup(context, *args, **kwargs):
     if(context.environment.get('DEPTHAI_DEBUG')=='1'):
         log_level='debug'
 
+    urdf_launch_dir = os.path.join(get_package_share_directory('depthai_descriptions'), 'launch')
+    
     params_file = LaunchConfiguration("params_file")
-    depthai_prefix = get_package_share_directory("depthai_ros_driver")
+    camera_model = LaunchConfiguration('camera_model',  default = 'OAK-D')
 
     name = LaunchConfiguration('name').perform(context)
+
+    # added as part of PointCloud node
     rgb_topic_name = name+'/rgb/image_raw'
     if LaunchConfiguration('rectify_rgb').perform(context)=='true':
         rgb_topic_name = name +'/rgb/image_rect'
@@ -55,9 +71,44 @@ def launch_setup(context, *args, **kwargs):
             'i_tf_imu_from_descr': imu_from_descr.perform(context),
         }
         }
+    
+    use_gdb      = LaunchConfiguration('use_gdb',       default = 'false')
+    use_valgrind = LaunchConfiguration('use_valgrind',  default = 'false')
+    use_perf     = LaunchConfiguration('use_perf',      default = 'false')
 
+    launch_prefix = ''
 
+    if (use_gdb.perform(context) == 'true'):
+        launch_prefix += "gdb -ex run --args "
+    if (use_valgrind.perform(context) == 'true'):
+        launch_prefix += "valgrind --tool=callgrind"
+    if (use_perf.perform(context) == 'true'):
+        launch_prefix += "perf record -g --call-graph dwarf --output=perf.out.node_name.data --"
     return [
+            Node(
+                condition=IfCondition(LaunchConfiguration("use_rviz").perform(context)),
+                package="rviz2",
+                executable="rviz2",
+                name="rviz2",
+                output="log",
+                arguments=["-d", LaunchConfiguration("rviz_config")],
+            ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(urdf_launch_dir, 'urdf_launch.py')),
+            launch_arguments={'tf_prefix': name,
+                              'camera_model': camera_model,
+                              'base_frame': name,
+                              'parent_frame': parent_frame,
+                              'cam_pos_x': cam_pos_x,
+                              'cam_pos_y': cam_pos_y,
+                              'cam_pos_z': cam_pos_z,
+                              'cam_roll': cam_roll,
+                              'cam_pitch': cam_pitch,
+                              'cam_yaw': cam_yaw,
+                              'use_composition': use_composition,
+                              'use_base_descr': publish_tf_from_calibration}.items()),
+
         ComposableNodeContainer(
             name=name+"_container",
             namespace="",
@@ -72,6 +123,7 @@ def launch_setup(context, *args, **kwargs):
                     )
             ],
             arguments=['--ros-args', '--log-level', log_level],
+            prefix=[launch_prefix],
             output="both",
         ),
 
@@ -105,29 +157,39 @@ def launch_setup(context, *args, **kwargs):
                     ),
             ],
         ),
+
     ]
 
 
 def generate_launch_description():
     depthai_prefix = get_package_share_directory("depthai_ros_driver")
+
     declared_arguments = [
         DeclareLaunchArgument("name", default_value="oak"),
-        DeclareLaunchArgument("camera_model", default_value="OAK-D"),
         DeclareLaunchArgument("parent_frame", default_value="oak-d-base-frame"),
+        DeclareLaunchArgument("camera_model", default_value="OAK-D"),
         DeclareLaunchArgument("cam_pos_x", default_value="0.0"),
         DeclareLaunchArgument("cam_pos_y", default_value="0.0"),
         DeclareLaunchArgument("cam_pos_z", default_value="0.0"),
         DeclareLaunchArgument("cam_roll", default_value="0.0"),
         DeclareLaunchArgument("cam_pitch", default_value="0.0"),
         DeclareLaunchArgument("cam_yaw", default_value="0.0"),
-        DeclareLaunchArgument("params_file", default_value=os.path.join(depthai_prefix, 'config', 'rgbd.yaml')),
-        DeclareLaunchArgument("rectify_rgb", default_value="False"),
+        DeclareLaunchArgument("params_file", default_value=os.path.join(depthai_prefix, 'config', 'camera.yaml')),
+        DeclareLaunchArgument("use_rviz", default_value='false'),
+        DeclareLaunchArgument("rviz_config", default_value=os.path.join(depthai_prefix, "config", "rviz", "rgbd.rviz")),
         DeclareLaunchArgument("rsp_use_composition", default_value='true'),
         DeclareLaunchArgument("publish_tf_from_calibration", default_value='false', description='Enables TF publishing from camera calibration file.'),
         DeclareLaunchArgument("imu_from_descr", default_value='false', description='Enables IMU publishing from URDF.'),
         DeclareLaunchArgument("override_cam_model", default_value='false', description='Overrides camera model from calibration file.'),
+        DeclareLaunchArgument("use_gdb", default_value='false'),
+        DeclareLaunchArgument("use_valgrind", default_value='false'),
+        DeclareLaunchArgument("use_perf", default_value='false'),
+        DeclareLaunchArgument("rectify_rgb", default_value="False"),
     ]
 
     return LaunchDescription(
         declared_arguments + [OpaqueFunction(function=launch_setup)]
     )
+
+
+
