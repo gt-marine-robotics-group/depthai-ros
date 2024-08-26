@@ -16,8 +16,7 @@
 namespace depthai_ros_driver {
 namespace param_handlers {
 
-NNParamHandler::NNParamHandler(std::shared_ptr<rclcpp::Node> node, const std::string& name, const dai::CameraBoardSocket& socket)
-    : BaseParamHandler(node, name) {
+NNParamHandler::NNParamHandler(rclcpp::Node* node, const std::string& name, const dai::CameraBoardSocket& socket) : BaseParamHandler(node, name) {
     nnFamilyMap = {
         {"segmentation", nn::NNFamily::Segmentation},
         {"mobilenet", nn::NNFamily::Mobilenet},

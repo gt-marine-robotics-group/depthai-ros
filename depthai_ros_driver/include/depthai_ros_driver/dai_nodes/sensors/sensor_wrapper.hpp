@@ -37,7 +37,7 @@ namespace dai_nodes {
 class SensorWrapper : public BaseNode {
    public:
     explicit SensorWrapper(const std::string& daiNodeName,
-                           std::shared_ptr<rclcpp::Node> node,
+                           rclcpp::Node* node,
                            std::shared_ptr<dai::Pipeline> pipeline,
                            std::shared_ptr<dai::Device> device,
                            dai::CameraBoardSocket socket,
@@ -50,7 +50,6 @@ class SensorWrapper : public BaseNode {
     void setXinXout(std::shared_ptr<dai::Pipeline> pipeline) override;
     void closeQueues() override;
     sensor_helpers::ImageSensor getSensorData();
-    std::vector<std::shared_ptr<sensor_helpers::ImagePublisher>> getPublishers() override;
 
    private:
     void subCB(const sensor_msgs::msg::Image& img);
